@@ -1,0 +1,20 @@
+LIBRARY AutoItObject
+EXPORTS
+AddEnum
+AddMethod
+AddProperty
+AutoItObjectCreateObject
+AutoItObjectCreateObjectEx
+CloneAutoItObject
+CreateAutoItObject
+CreateAutoItObjectClass
+CreateWrapperObject
+CreateWrapperObjectEx
+CreateDllCallObject
+Initialize
+IUnknownAddRef
+IUnknownRelease
+MemoryCallEntry
+RemoveMember
+ReturnThis
+WrapperAddMethod
