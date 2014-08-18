@@ -1,4 +1,4 @@
 version: 1.2.8.3.{build}
 
 build:
-  project: AutoItObject.vcproj
+  project: AutoItObject/Source/AutoItObject.vcproj
