@@ -103,12 +103,12 @@ ULONG AutoItObject::Release()
 			this->ref_count++;
 			for (unsigned int i=this->members.size()-1;i>0;i--){
 				if (this->members.at(i)->GetName()[0]=='~')
-				{	
+				{
 					VariantClear(&v_paramarray);
 					//Make SafeArray for params ("CallArgArray" and this)
 					v_paramarray.parray = SafeArrayCreate(VT_VARIANT, 1, rgsabound);;
 					v_paramarray.vt = (VT_ARRAY | VT_VARIANT);
-					// Switch to script... 
+					// Switch to script...
 					AutoItFunctionProxy(this->members.at(i)->GetData()->bstrVal, this);
 				}
 			}
@@ -128,17 +128,25 @@ ULONG AutoItObject::Release()
 
 HRESULT AutoItObject::QueryInterface(const IID &riid, void **ppvObject)
 {
+	if (riid == IID_IUnknown || riid == IID_IDispatch )
+	{
+		this->AddRef();
+		*ppvObject = this;
+		return S_OK;
+	}
 	return E_NOINTERFACE;
 }
 
 HRESULT AutoItObject::GetTypeInfoCount(UINT *pctinfo)
 {
-	return E_NOTIMPL;
+	if (pctinfo) *pctinfo = 0;
+    return S_OK;
 }
 
 HRESULT AutoItObject::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
 {
-	return E_NOTIMPL;
+	if (ppTInfo) *ppTInfo = NULL;
+    return S_OK;
 }
 
 HRESULT AutoItObject::GetIDsOfNames(const IID &riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId)
@@ -158,7 +166,7 @@ HRESULT AutoItObject::GetIDsOfNames(const IID &riid, LPOLESTR *rgszNames, UINT c
 	}else if (Compare(L"__name__",rgszNames[0])==0) {
 		*rgDispId = -905;
 	}else { // Search through members
-		*rgDispId = FindMember(rgszNames[0]);
+		*rgDispId = this->FindMember(rgszNames[0]);
 	}
 	if 	(*rgDispId == -1) return DISP_E_UNKNOWNNAME;
 	return S_OK;
@@ -191,7 +199,7 @@ HRESULT AutoItObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid, WO
 			VARIANT* pData;
 			if (SafeArrayAccessData(v_paramarray.parray, (void**)&pData) == S_OK) {
 				pData[0].vt = VT_BSTR;
-				pData[0].bstrVal = SysAllocString(L"CallArgArray"); // new every time since it's freed every time 
+				pData[0].bstrVal = SysAllocString(L"CallArgArray"); // new every time since it's freed every time
 				pData[1].vt = VT_DISPATCH;
 				pData[1].pdispVal = this;
 				this->AddRef(); //++ref_count; // because Release() is called when v_paramarray is cleared
@@ -285,7 +293,7 @@ HRESULT AutoItObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid, WO
 			v_propcall.lVal=0;
 			success = AutoItFunctionProxy(static_cast<LPCWSTR>(elem->GetData()->bstrVal),this);
 			v_propcall.lVal= propcall_old;
-			VariantCopy(pVarResult, &this->v_result);
+			if (pVarResult != NULL) VariantCopy(pVarResult, &this->v_result);
 			VariantClear(&this->v_paramarray);
 			VariantClear(&this->v_result);
 			this->in_object -= 1;
@@ -340,7 +348,7 @@ HRESULT AutoItObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid, WO
 			}
 			// end
 			if (pDispParams->cArgs != 0) return DISP_E_BADPARAMCOUNT;
-			VariantCopy(pVarResult, elem->GetData());
+			if (pVarResult != NULL) VariantCopy(pVarResult, elem->GetData());
 			return S_OK;
 			break;
 
@@ -380,7 +388,7 @@ HRESULT AutoItObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid, WO
 			v_propcall.lVal=1;
 			success = AutoItFunctionProxy(static_cast<LPCWSTR>(elem->GetData()->bstrVal),this);
 			v_propcall.lVal= propcall_old;
-			VariantCopy(pVarResult, &this->v_result);
+			if (pVarResult != NULL) VariantCopy(pVarResult, &this->v_result);
 			VariantClear(&this->v_paramarray);
 			VariantClear(&this->v_result);
 			this->in_object -= 1;
@@ -449,7 +457,7 @@ DISPID AutoItObject::FindMember(wchar_t* name)
 
 void AutoItObject::RemoveMember(wchar_t* name)
 {
-	DISPID index = FindMember(name);
+	DISPID index = this->FindMember(name);
 	if (index > -1) {
 		delete members.at(index);
 		members.erase(index);
@@ -464,7 +472,7 @@ void AutoItObject::AddMethod(wchar_t* method,wchar_t* value, AutoItElement::SCOP
 	elem->SetName(method);
 	elem->SetData(value);
 	this->AddMember(elem);
-} 
+}
 
 void AutoItObject::AddProperty(wchar_t* property_name,  AutoItElement::SCOPE new_scope, VARIANT* property_value)
 {
@@ -474,13 +482,13 @@ void AutoItObject::AddProperty(wchar_t* property_name,  AutoItElement::SCOPE new
 	elem->SetScope(new_scope);
 	elem->SetName(property_name);
 	this->AddMember(elem);
-} 
+}
 
 void AutoItObject::AddMember(AutoItElement *new_member)
 {
-	DISPID index = FindMember(new_member->GetName());
+	DISPID index = this->FindMember(new_member->GetName());
 	//if (index == -1 || wcscmp(L"~",new_member->GetName())==0) {
-	if (index == -1 || new_member->GetName()[0]=='~') { 
+	if (index == -1 || new_member->GetName()[0]=='~') {
 		this->members.push_back(new_member);
 	} else {
 		delete members.at(index);
@@ -492,13 +500,13 @@ void AutoItObject::AddEnum(wchar_t* function_next, wchar_t* function_reset, wcha
 {
 	if (enumfn_next) delete [] enumfn_next;
 	enumfn_next = new wchar_t[lstrlenW(function_next)+1];
-	wcscpy(enumfn_next,function_next);
+	lstrcpyW(enumfn_next,function_next);
 
 	if (enumfn_reset) delete [] enumfn_reset;
 	enumfn_reset = new wchar_t[lstrlenW(function_reset)+1];
-	wcscpy(enumfn_reset,function_reset);
+	lstrcpyW(enumfn_reset,function_reset);
 
 	if (enumfn_skip) delete [] enumfn_skip;
 	enumfn_skip = new wchar_t[lstrlenW(function_skip)+1];
-	wcscpy(enumfn_skip,function_skip);
+	lstrcpyW(enumfn_skip,function_skip);
 }

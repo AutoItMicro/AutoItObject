@@ -55,7 +55,7 @@ void AutoItWrapElement::SetName(wchar_t* new_name)
 {
 	if (this->name) delete [] this->name;
 	this->name = new wchar_t[lstrlenW(new_name)+1];
-	wcscpy(this->name,new_name);
+	lstrcpyW(this->name,new_name);
 }
 
 LPWSTR* AutoItWrapElement::GetTypes()
@@ -78,22 +78,22 @@ void AutoItWrapElement::SetTypes(wchar_t* wtypes)
 		{
 			if (wtypes[len+1]!='\0')
 			{
-				iparams++; // one more param detected
+				++iparams; // one more param detected
 			}
 			else
 			{
 				wtypes[len]='\0'; // replacing ';\0' with '\0\0' if that's occurred
 			}
 		}
-		len++;
+		++len;
 	}
-	if (len) iparams++; // real number of params is +1
+	if (len) ++iparams; // real number of params is +1
 	// If there are params specified make and fill array of string pointers
 	if (iparams)
 	{
 		this->specparamcount=iparams;
 		this->swtypes = new wchar_t[len+1];
-        wcscpy(this->swtypes, wtypes);
+        lstrcpyW(this->swtypes, wtypes);
 		this->types = new LPWSTR[iparams];
 		types[0] = this->swtypes;
 		INT iparam=1;
@@ -104,9 +104,9 @@ void AutoItWrapElement::SetTypes(wchar_t* wtypes)
 			{
 				this->swtypes[i]='\0'; // replacing with null-terminator (separator)
 				types[iparam] = this->swtypes+i+1; // moving pointer forward and set it to types
-				iparam++;
+				++iparam;
 			}
-			i++;
+			++i;
 		}
 	}
 	else

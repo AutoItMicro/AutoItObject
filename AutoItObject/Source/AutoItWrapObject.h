@@ -72,11 +72,12 @@ private:
 	LONGLONG DoubleToLonglong(DOUBLE dval);
 	VOID FixDecimalSeparator(BSTR bstr, BOOL bflag=FALSE);
 	BOOL CrackReturnType(LPWSTR wtype, BOOL *byrefedret, CALLCONV *callingConv, VARTYPE *rettype);
+	BOOL SetFunctionName(LPWSTR sName);
 	VARIANT v_paramarray;
 	BOOL is_unkown;
 	HMODULE hDLL;
 	BOOL fCallFree;
-	ULONG_PTR GetFunctionPointer(LPCSTR sFunction);
+	ULONG_PTR GetDllFunctionPointer();
 	BOOL fDLLCallObject;
     LPWSTR sFunctionName;
 };

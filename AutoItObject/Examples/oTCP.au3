@@ -1,4 +1,4 @@
-#include "..\AutoitObject.au3"
+#include "AutoitObject.au3"
 Opt("MustDeclareVars", 1)
 
 ; Error monitoring

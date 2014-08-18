@@ -1,7 +1,7 @@
 #AutoIt3Wrapper_Au3Check_Parameters=-d -w 1 -w 2 -w 3 -w 4 -w 5 -w 6
 
 
-#include "autoitobject\AutoitObject.au3"
+#include "AutoitObject.au3"
 
 Global $oError = ObjEvent("AutoIt.Error", "_ErrFunc")
 Func _ErrFunc()
@@ -11,13 +11,7 @@ EndFunc   ;==>_ErrFunc
 _AutoItObject_StartUp()
 
 ; Define IShellDispatch vTable methods
-Global $tagIShellDispatch = "QueryInterface;" & _
-        "AddRef;" & _
-        "Release;" & _ ; IUnknown
-        "GetTypeInfoCount;" & _
-        "GetTypeInfo;" & _
-        "GetIDsOfNames;" & _
-        "Invoke;" & _ ; IDispatch
+Global $tagIShellDispatch = $ltagIDispatch & _
         "Application;" & _
         "Parent;" & _
         "NameSpace;" & _

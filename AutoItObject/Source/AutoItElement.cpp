@@ -90,5 +90,5 @@ void AutoItElement::SetName(wchar_t* new_name)
 {
 	if (name) delete [] name;
 	this->name = new wchar_t[lstrlenW(new_name)+1];
-	wcscpy(name,new_name);
+	lstrcpyW(name,new_name);
 }

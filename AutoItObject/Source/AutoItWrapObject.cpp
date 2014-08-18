@@ -30,7 +30,6 @@
 
 #pragma comment( lib , "Shlwapi.lib")
 #pragma warning( disable : 4244 ) // this to that; it's deliberate
-#pragma warning( disable : 4996 ) // wcscpy warning
 
 AutoItWrapObject::AutoItWrapObject(IUnknown* new_object, bool no_unknown, bool is_DllCallObject): ref_count(0), in_object(0), fCallFree(0)
 {
@@ -47,7 +46,7 @@ AutoItWrapObject::AutoItWrapObject(IUnknown* new_object, bool no_unknown, bool i
 }
 
 
-AutoItWrapObject::AutoItWrapObject(IUnknown* new_object, wchar_t *methods, bool no_unknown, bool fFreeMem, bool is_DllCallObject): ref_count(0), in_object(0), hDLL(0)
+AutoItWrapObject::AutoItWrapObject(IUnknown* new_object, wchar_t *methods, bool no_unknown, bool fFreeMem, bool is_DllCallObject): ref_count(0), in_object(0), hDLL(0), sFunctionName(NULL)
 {
 	if (no_unknown) this->is_unkown = false;
 	else this->is_unkown = true;
@@ -82,10 +81,11 @@ AutoItWrapObject::~AutoItWrapObject(void)
 	for (unsigned int i=0;i<members.size();i++){
 		delete members.at(i);
 	}
-	members.clear();
+	this->members.clear();
 	VariantClear(&v_paramarray);
 	if (this->is_unkown) this->wrapped_object->Release();
 	if (this->hDLL != NULL) FreeLibrary(this->hDLL);
+	if (this->sFunctionName) delete [] this->sFunctionName;
 	if (this->fCallFree) CoTaskMemFree(this->wrapped_object);
 }
 
@@ -112,46 +112,71 @@ ULONG AutoItWrapObject::Release()
 
 HRESULT AutoItWrapObject::QueryInterface(const IID &riid, void **ppvObject)
 {
+	if (riid == IID_IUnknown)
+	{
+		// Check if wrapped object is IUnknown
+		if (this->is_unkown)
+		{
+			this->wrapped_object->AddRef();
+			*ppvObject = this->wrapped_object;
+			return S_OK;
+		}
+		return E_NOTIMPL;
+	}
+	else if (riid == IID_IDispatch)
+	{
+		if (this->is_unkown) this->wrapped_object->AddRef();
+		this->AddRef();
+		*ppvObject = this;
+		return S_OK;
+	}
+	// If some other interface pointer is asked for...
+	else
+	{
+		// ...and if wrapped object is IUnknown...
+		if (this->is_unkown)
+		{
+			// ...transfer the call to the wrapped object.
+			return this->wrapped_object->QueryInterface(riid, ppvObject);
+		}
+	}
+	// If here no such interface is supported
 	return E_NOINTERFACE;
 }
 
 
 HRESULT AutoItWrapObject::GetTypeInfoCount(UINT *pctinfo)
 {
-	return E_NOTIMPL;
+	if (pctinfo) *pctinfo = 0;
+    return S_OK;
 }
 
 
 HRESULT AutoItWrapObject::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
 {
-	return E_NOTIMPL;
+	if (ppTInfo) *ppTInfo = NULL;
+    return S_OK;
 }
 
 
 HRESULT AutoItWrapObject::GetIDsOfNames(const IID &riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId)
 {
-	if (Compare(L"__ptr__", rgszNames[0])==0) {
+	if (Compare(L"__ptr__", rgszNames[0]) == 0) {
 		*rgDispId = -804;
 	}else // Search through members
 	{
-		// Special case is DLLCallObject. Will set sFunctionName property to reguested function name
+		// Special case is DLLCallObject
 		if (this->fDLLCallObject)
 		{
-			if (this->members.at(0)->GetName()==NULL) // if functions names are not listed in advance
-			{
-				this->sFunctionName = rgszNames[0];
-				return S_OK;
-			}
-			else // either "ltag" or "dtag" supplied
-			{
-				*rgDispId = FindMember(rgszNames[0]);
-				if 	(*rgDispId == -1) return DISP_E_UNKNOWNNAME;
-				this->sFunctionName = this->members.at(*rgDispId)->GetName();
-				return S_OK;
-			}
+			// Setting sFunctionName property to reguested function name
+			if (!!!this->SetFunctionName(rgszNames[0])) return DISP_E_EXCEPTION;
+			
+			// If functions names are not listed in advance return sucess. Possible errors will be detected and handled inside Invoke.
+			if (this->members.at(0)->GetName() == NULL) return S_OK;
+			// Else either "ltag" or "dtag" are supplied and searching is done below...
 		}
-		// For all other type of objects search for member
-		*rgDispId = FindMember(rgszNames[0]);
+		// Search for member:
+		*rgDispId = this->FindMember(rgszNames[0]);
 	}
 	if 	(*rgDispId == -1) return DISP_E_UNKNOWNNAME;
 	return S_OK;
@@ -176,7 +201,7 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 	}
 
 	if ((wFlags & DISPATCH_METHOD) || (wFlags & DISPATCH_PROPERTYGET)) {
-		AutoItWrapElement *elem = this->members.at(dispIdMember);
+		AutoItWrapElement* elem = this->members.at(dispIdMember);
 		INT cArgCount= pDispParams->cArgs + elem->specparamcount; // overall number of parameters
 		if (cArgCount%2==0) return DISP_E_BADPARAMCOUNT; // should be uneven number (ret type + pairs of type/values)
 		// Increment 'inobject' count
@@ -201,7 +226,7 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 			{
 				if  (!elem->specparamcount) // this needs to be checked only for when calling in DllCall() manner
 				{
-					if (pDispParams->rgvarg[i].vt!=VT_BSTR) // param type is always string
+					if (pDispParams->rgvarg[i].vt!=VT_BSTR) // param type should always be string
 					{
 						this->CleanOnInvoke(index, aux, subvariant, carrier, prgvt, prgpvarg);
 						--this->in_object;
@@ -466,7 +491,7 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 							}
 						}
 						LPWSTR wstr = new WCHAR[65536]; // allocate space in the same size that AutoIt does. FIXME: should this be in size of the 'string'?
-						wcscpy(wstr, static_cast<LPWSTR>(string));
+						lstrcpyW(wstr, static_cast<LPWSTR>(string));
 						subvariant[index].byref = wstr;
 						prgpvarg[index] = &subvariant[index];
 						aux[index] = wstr;
@@ -538,7 +563,8 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 						if (carrier[index].vt == VT_DISPATCH)
 						{
 							*subbufferidispatch = carrier[index].pdispVal; // that's passed value
-							carrier[index].pdispVal->AddRef();
+							// Add ref count if it's valid object
+							if (carrier[index].pdispVal != 0) carrier[index].pdispVal->AddRef();
 						}
 						subvariant[index].ppdispVal = subbufferidispatch; // pointer to idispatch goes to variant
 						prgpvarg[index] = &subvariant[index];
@@ -599,7 +625,7 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 						}
 					}
 					LPWSTR wstr = new WCHAR[65536];
-					wcscpy(wstr, static_cast<LPWSTR>(string));
+					lstrcpyW(wstr, static_cast<LPWSTR>(string));
 					prgvt[index] = VT_BSTR; // setting proper vtype for the param
 					subvariant[index].vt = VT_LPWSTR;
 					subvariant[index].byref = wstr;
@@ -788,7 +814,7 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 					prgpvarg[index] = &carrier[index]; // setting pointer to carrier variant
 					aux[index] = NULL;
 				}
-				index++; // increment index
+				++index; // increment index
 			}
 		}
 
@@ -839,10 +865,8 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 		if (this->fDLLCallObject)
 		{
 			pObject = NULL;
-			CHAR sFunction[1024]; // fixed max len for the function name for simplicity
-			WideCharToMultiByte(CP_ACP, 0, this->sFunctionName, -1, sFunction, 1024, NULL, NULL); // convert to ANSI string
-			pMethod = this->GetFunctionPointer(sFunction);
-			// Check if DLL actually export that function
+			pMethod = this->GetDllFunctionPointer();
+			// Check if DLL actually exports that function
 			if (pMethod == NULL)
 			{
 				this->CleanOnInvoke(ifuncparams, aux, subvariant, carrier, prgvt, prgpvarg);
@@ -867,7 +891,7 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 			&pVarRet); // pointer to ret variant
 
 		// Copy to a SafeArray for out.
-		SAFEARRAY * psa;
+		SAFEARRAY* psa;
 		SAFEARRAYBOUND rgsabound[1];
 		rgsabound[0].lLbound = 0;
 		rgsabound[0].cElements = ifuncparams+1;
@@ -917,7 +941,33 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 					{
 						VARIANT *varbelow = subvariant[i].pvarVal;
 						VariantChangeType(&pData[i+1], &pData[i+1], 0, varbelow->vt); // changing to proper type
-						pData[i+1].ullVal = varbelow->ullVal; // this is ok
+						// Few special cases can occur:
+						if (varbelow->vt == VT_LPSTR)
+						{
+							// Need to convert ANSI string to BSTR
+							pData[i+1].vt = VT_BSTR;
+							LPSTR stringin = reinterpret_cast<LPSTR>(varbelow->ullVal);
+							INT iLen = MultiByteToWideChar(CP_ACP, 0, stringin, -1, NULL, 0) ;
+							LPWSTR wstringout = new WCHAR[iLen];
+							MultiByteToWideChar(CP_ACP, 0, stringin, -1, wstringout, iLen);
+							pData[i+1].bstrVal = SysAllocString(reinterpret_cast<BSTR>(wstringout));
+							delete [] wstringout;
+						}
+						else if (varbelow->vt == VT_LPWSTR)
+						{
+							pData[i+1].vt = VT_BSTR;
+							pData[i+1].bstrVal = SysAllocString(reinterpret_cast<BSTR>(varbelow->ullVal));
+						}
+						else if (varbelow->vt & VT_ARRAY)
+						{
+							pData[i+1].vt = varbelow->vt;
+							pData[i+1].parray = varbelow->parray;
+						}
+						//...and if nothing is special then:
+						else
+						{
+							pData[i+1].ullVal = varbelow->ullVal; // this is ok
+						}
 					}
 					else if (isubtype == VT_I8)
 					{
@@ -1084,7 +1134,6 @@ HRESULT AutoItWrapObject::Invoke(DISPID dispIdMember, const IID &riid, LCID lcid
 DISPID AutoItWrapObject::FindMember(wchar_t* name)
 {
 	// Search through members
-	//for (unsigned int i=0;i<this->members.size();i++){
 	for (int i=this->members.size()-1;i>-1;i--){ // going backwards. Inheritor have priority over inherited.
 		if (Compare(this->members.at(i)->GetName(),name)==0)
 		{
@@ -1112,9 +1161,28 @@ VOID AutoItWrapObject::SetParentDllHandle(HMODULE handle)
 	this->hDLL = handle;
 }
 
-
-ULONG_PTR AutoItWrapObject::GetFunctionPointer(LPCSTR sFunction)
+BOOL AutoItWrapObject::SetFunctionName(LPWSTR sName)
 {
+	// Clean first
+	if (this->sFunctionName) delete [] this->sFunctionName;
+	this->sFunctionName = NULL;
+	// Allocate new in size of passed + 1 (null-terminator)
+	LPWSTR pBuffer = new WCHAR[lstrlenW(sName)+1];
+	// Copy to this buffer
+	if (lstrcpyW(pBuffer, sName) != NULL) 
+	{
+		this->sFunctionName = pBuffer;
+		return TRUE;
+	}
+	// If failed to copy release memory and return failure
+	delete [] pBuffer;
+	return FALSE;
+}
+
+ULONG_PTR AutoItWrapObject::GetDllFunctionPointer()
+{
+	CHAR sFunction[1024]; // fixed max len for the function name for simplicity
+	WideCharToMultiByte(CP_ACP, 0, this->sFunctionName, -1, sFunction, 1024, NULL, NULL); // convert to ANSI string
 	return reinterpret_cast<ULONG_PTR>(GetProcAddress(this->hDLL, sFunction));
 }
 

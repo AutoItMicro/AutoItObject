@@ -5,8 +5,8 @@
 LANGUAGE 9,1
 
 IDR_VERSION1 VERSIONINFO
-FILEVERSION 1,2,2,0
-PRODUCTVERSION 1,2,2,0
+FILEVERSION 1,2,8,3
+PRODUCTVERSION 1,2,8,3
 FILEOS 0x00000004
 FILETYPE 0x00000002
 BEGIN
@@ -14,8 +14,8 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "FileVersion", "1.2.2.0\0"
-      VALUE "ProductVersion", "1.2.2.0\0"
+      VALUE "FileVersion", "1.2.8.3\0"
+      VALUE "ProductVersion", "1.2.8.3\0"
       VALUE "FileDescription", "Provides object functionality for AutoIt\0"
       VALUE "ProductName", "AutoItObject\0"
 	  VALUE "LegalCopyright", "(C) The AutoItObject-Team\0"
