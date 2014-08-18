@@ -1,5 +1,5 @@
 #include <windowsconstants.au3>
-#include "AutoitObject\AutoitObject.au3"
+#include "AutoitObject.au3"
 #include "oLinkedList.au3"
 
 #AutoIt3Wrapper_UseX64=n

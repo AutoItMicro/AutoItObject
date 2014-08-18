@@ -29,7 +29,6 @@
 *
 */
 #pragma warning( disable : 4244 ) // this to that; it's deliberate
-#pragma warning( disable : 4996 ) // wcscpy warning
 
 #pragma once
 
@@ -50,4 +49,4 @@ INT debugprintW(const wchar_t *format, ...);
 
 VARTYPE VarType(VARTYPE vtype, LPCWSTR wtype);
 
-VARTYPE VarTypeX(VARTYPE vtype, LPCWSTR wtype);
+VOID ObjPersist(LPVOID ppv);

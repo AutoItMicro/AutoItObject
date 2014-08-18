@@ -1,4 +1,4 @@
-#include "AutoitObject\AutoitObject.au3"
+#include "AutoitObject.au3"
 
 Opt("GUIOnEventMode", 1)
 
