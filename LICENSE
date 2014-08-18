@@ -1,6 +1,15 @@
+AutoItObject is free software; you can redistribute it and/or modify
+it under the terms of the Artistic License as published by Larry Wall,
+either version 2.0, or (at your option) any later version.
+
 The Artistic License 2.0
 
-           Copyright (c) 2014 Micro Unit Testing Framework
+           Copyright (c) 2014 
+           The AutoItObject-Team:
+               Andreas Karlsson (monoceres)
+               Dragana R. (trancexx)
+               Dave Bakker (Kip)
+               Andreas Bosch (progandy, Prog@ndy)
 
      Everyone is permitted to copy and distribute verbatim copies
       of this license document, but changing it is not allowed.
