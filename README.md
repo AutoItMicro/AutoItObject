@@ -1,4 +1,4 @@
-AutoItObject v1.2.2.0
+AutoItObject v1.2.8.3
 ============
 ### Bringing Objects to AutoIt
 
