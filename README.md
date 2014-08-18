@@ -1,5 +1,5 @@
 AutoItObject v1.2.8.3
-============
+=====================
 ### Bringing Objects to AutoIt
 
 #### For AutoIt Version 3.3
